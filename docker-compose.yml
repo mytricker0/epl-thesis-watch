@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+  epl-watcher:
+    build: .
+    container_name: epl-watcher
+    restart: unless-stopped
+
+    environment:
+      # ── WhatsApp via CallMeBot ──────────────────────────────
+      # 1. Save +32477... in your contacts as "CallMeBot"
+      # 2. Send "I allow callmebot to send me messages" to +34 644 44 00 96 on WhatsApp
+      # 3. You'll receive your API key by WhatsApp
+      CALLMEBOT_PHONE:   "+32XXXXXXXXX"       # ← your WhatsApp number with country code
+      CALLMEBOT_APIKEY:  "XXXXXXXX"           # ← API key from CallMeBot
+
+      # ── Gmail ──────────────────────────────────────────────
+      # Generate an App Password at: https://myaccount.google.com/apppasswords
+      # (2FA must be enabled on your Google account)
+      GMAIL_USER:        "you@gmail.com"      # ← your Gmail address
+      GMAIL_APP_PASS:    "xxxx xxxx xxxx xxxx" # ← 16-char app password (spaces OK)
+      NOTIFY_EMAIL:      "you@gmail.com"      # ← where to receive alerts
+
+      # ── Display for Playwright browser (Xvfb virtual screen) ──
+      DISPLAY:           ":99"
+
+    volumes:
+      # Persists cookies & logs between container restarts
+      - ./cookies:/app/cookies
+
+    ports:
+      # Web control panel: http://YOUR_SERVER:5050
+      - "5050:5050"
+      # VNC (optional): connect with any VNC client to see the browser
+      - "5900:5900"
+
+    # Launches Xvfb virtual display before starting the app
+    # so Playwright can open a visible browser window
+    command: >
+      bash -c "
+        Xvfb :99 -screen 0 1280x900x24 &
+        x11vnc -display :99 -nopw -listen localhost -xkb &
+        /app/entrypoint.sh
+      "
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5050/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
